@@ -1,0 +1,4 @@
+# Copyright (c) 2026 许诺
+# SPDX-License-Identifier: Apache-2.0
+# 统一换行符为 LF，避免 Windows 检出产生 CRLF 漂移。
+* text=auto eol=lf

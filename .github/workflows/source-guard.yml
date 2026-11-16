@@ -1,0 +1,60 @@
+name: Public repo source guard
+
+# 本仓库是分级公开的「发布出口」。核心实现源码一旦进入公开历史即不可回收
+# （GitHub public -> private 时已有 fork 仍公开，clone 带走全部历史）。
+# 此检查作为分支保护的必需状态检查，拦住误推与来自 fork 的 PR。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Reject implementation source files
+        shell: bash
+        run: |
+          set -euo pipefail
+          blocked='\.(dart|rs|c|cc|cpp|h|hpp|java|kt|kts|swift|m|mm|go|py|js|mjs|cjs|jsx|ts|tsx|sh|bash|ps1|bat|cmd|gradle|sln|vcxproj|pbxproj|keystore|jks|p12|pfx|key)$'
+          hits="$(git ls-files | grep -v '^\.github/' | grep -Ei "$blocked" || true)"
+          if [ -n "$hits" ]; then
+            echo "::error::implementation source or key material must not enter the public repo"
+            echo "$hits"
+            exit 1
+          fi
+          echo "OK: no implementation source files tracked"
+
+      - name: Reject secrets and oversized tracked files
+        shell: bash
+        run: |
+          set -euo pipefail
+          files="$(git ls-files | grep -v '^\.github/' || true)"
+          if [ -n "$files" ]; then
+            # 只做通用形态匹配，不写任何具体地址或凭据
+            secrets="$(echo "$files" | xargs -r grep -nE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}' || true)"
+            if [ -n "$secrets" ]; then
+              echo "::error::possible credential material in tracked files"
+              echo "$secrets"
+              exit 1
+            fi
+            while IFS= read -r f; do
+              [ -f "$f" ] || continue
+              size="$(wc -c < "$f")"
+              if [ "$size" -gt 1048576 ]; then
+                echo "::error::large file must be a Release asset, not a tracked file: $f"
+                exit 1
+              fi
+            done <<< "$files"
+          fi
+          echo "OK: no obvious secrets or oversized tracked files"

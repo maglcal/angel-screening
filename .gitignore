@@ -1,0 +1,23 @@
+# 公开发布仓：只放外围内容，不落构建产物与本地配置
+build/
+dist/
+out/
+*.exe
+*.msi
+*.dmg
+*.deb
+*.rpm
+*.AppImage
+*.tar.zst
+*.zip
+*.log
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
